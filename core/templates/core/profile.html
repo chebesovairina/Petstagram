@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load post_tags %}
+{% block content %}
+<div class="profile-container">
+    <div class="profile-header">
+        <img src="{% if profile_user.avatar %}{{ profile_user.avatar.url }}{% else %}{% static 'images/default_avatar.png' %}{% endif %}"
+             alt="Аватар"
+             class="avatar">
+        <div class="profile-info">
+            <h2>{{ profile_user.pet_name }}</h2>
+            <p><strong>Тип:</strong> {{ profile_user.get_pet_type_display }}</p>
+            {% if profile_user.bio %}
+            <p><strong>Обо мне:</strong> {{ profile_user.bio }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="profile-actions">
+        {% if not is_owner %}
+        {% if request.user.is_authenticated %}
+        <button class="follow-btn"
+                data-user-id="{{ profile_user.id }}"
+                {% if subscription_exists %}data-is-following="true"{% endif %}>
+            {% if subscription_exists %}Отписаться{% else %}Подписаться{% endif %}
+        </button>
+        {% endif %}
+        {% endif %}
+        <div class="follow-stats">
+            <span>Подписчиков: <strong id="followers-count">{{ profile_user.followers.count }}</strong></span>
+            <span>Подписок: <strong id="following-count">{{ profile_user.following.count }}</strong></span>
+        </div>
+    </div>
+
+    {% for post in posts %}
+        <div class="post-card">
+            <div class="post-header">
+                <img src="{% if profile_user.avatar %}{{ profile_user.avatar.url }}{% else %}{% static 'images/default_avatar.png' %}{% endif %}"
+                    class="post-avatar">
+                <span class="post-author">{{ profile_user.pet_name }}</span>
+            </div>
+
+            <img src="{{ post.image.url }}" class="post-image" alt="Post">
+
+            <div class="post-actions">
+                <button class="like-btn {% if request.user in post.likes.all %}active{% endif %}"
+                        data-post-id="{{ post.id }}">
+                    ♥ <span class="like-count">{{ post.likes.count }}</span>
+                </button>
+                <button class="comment-btn" data-post-id="{{ post.id }}">
+                    💬 <span class="comment-count">{{ post.comments.count }}</span>
+                </button>
+            </div>
+
+            <div class="post-caption">
+                {{ post.caption }}
+            </div>
+
+            <div class="post-comments">
+                {% for comment in post.comments.all|slice:":3" %}
+                    <div class="comment">
+                        <strong>{{ comment.author.pet_name }}</strong>: {{ comment.text }}
+                    </div>
+                {% endfor %}
+
+                {% if post.comments.count > 3 %}
+                    <div class="show-more-comments" data-post-id="{{ post.id }}" style="cursor: pointer; color: blue;">
+                        Показать все комментарии ({{ post.comments.count }})
+                    </div>
+                    <div class="all-comments" id="all-comments-{{ post.id }}" style="display: none;">
+                        {% for comment in post.comments.all %}
+                            <div class="comment">
+                                <strong>{{ comment.author.pet_name }}</strong>: {{ comment.text }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <form class="comment-form" data-post-id="{{ post.id }}">
+                {% csrf_token %}
+                <input type="text" name="text" placeholder="Добавить комментарий..." required>
+                <button type="submit">Опубликовать</button>
+            </form>
+        </div>
+    {% endfor %}
+
+<script>
+document.querySelectorAll('.post-thumbnail').forEach(thumbnail => {
+    thumbnail.onclick = function(e) {
+        e.preventDefault();
+        const postId = this.dataset.postId;
+        const modal = document.getElementById(`postModal${postId}`);
+        modal.classList.add('active');
+    }
+});
+
+document.querySelectorAll('.close').forEach(closeBtn => {
+    closeBtn.onclick = function() {
+        this.closest('.modal').classList.remove('active');
+    }
+});
+
+window.onclick = function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('active');
+    }
+}
+
+document.querySelectorAll('.show-more-comments').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const postId = this.dataset.postId;
+        const allComments = document.getElementById(`all-comments-${postId}`);
+
+        if (allComments.style.display === 'none') {
+            allComments.style.display = 'block';
+            this.textContent = 'Скрыть комментарии';
+        } else {
+            allComments.style.display = 'none';
+            this.textContent = `Показать все комментарии (${allComments.querySelectorAll('.comment').length})`;
+        }
+    });
+});
+
+function updateLikeUI(btn, isLiked, newCount) {
+    btn.classList.toggle('active', isLiked);
+    btn.querySelector('.like-count').textContent = newCount;
+}
+
+document.querySelectorAll('.like-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const postId = this.dataset.postId;
+        const isLiked = this.classList.contains('active');
+
+        try {
+            const response = await fetch(`/posts/${postId}/like/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: isLiked ? 'unlike' : 'like'
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                updateLikeUI(this, data.is_liked, data.likes_count);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+});
+
+document.querySelectorAll('.comment-form').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const postCard = this.closest('.post-card');
+        if (!postCard) {
+            console.error('Не найден post-card');
+            return;
+        }
+
+        const input = this.querySelector('input[type="text"]');
+        if (!input) {
+            console.error('Не найдено поле ввода');
+            return;
+        }
+
+        const text = input.value.trim();
+        const postId = this.dataset.postId;
+
+        if (!text || !postId) {
+            alert('Введите текст комментария');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/posts/${postId}/comment/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.message || `HTTP error ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status !== 'ok') {
+                throw new Error(data.message || 'Server error');
+            }
+
+            const commentHTML = `
+                <div class="comment">
+                    <strong>${data.author_name || 'Аноним'}:</strong>
+                    <span>${data.text}</span>
+                </div>
+            `;
+
+            const commentsContainer = postCard.querySelector('.post-comments');
+            if (commentsContainer) {
+                commentsContainer.insertAdjacentHTML('afterbegin', commentHTML);
+            } else {
+                console.error('Контейнер комментариев не найден');
+            }
+
+            const counter = postCard.querySelector('.comment-count');
+            if (counter) {
+                counter.textContent = data.comments_count;
+            }
+
+            input.value = '';
+
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert(`Ошибка: ${error.message}`);
+        }
+    });
+});
+
+document.querySelectorAll('.follow-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const userId = this.dataset.userId;
+        const isFollowing = this.dataset.isFollowing === 'true';
+
+        try {
+            const response = await fetch(`/toggle_follow/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                this.textContent = data.is_following ? 'Отписаться' : 'Подписаться';
+                this.dataset.isFollowing = data.is_following;
+                document.getElementById('followers-count').textContent = data.followers_count;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+});
+</script>
+</div>
+{% endblock %}

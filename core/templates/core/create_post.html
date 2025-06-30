@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="post-form-container">
+    <h2>Новая публикация</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            {{ form.image.label_tag }}
+            {{ form.image }}
+        </div>
+        <div class="form-group">
+            {{ form.caption.label_tag }}
+            {{ form.caption }}
+        </div>
+        <button type="submit" class="btn">Опубликовать</button>
+    </form>
+</div>
+{% endblock %}

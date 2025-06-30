@@ -1,0 +1,4 @@
+<div class="comment">
+    <strong>{{ comment.author.pet_name }}</strong>: {{ comment.text|escape }}
+    <small>{{ comment.created_at|timesince }} назад</small>
+</div>

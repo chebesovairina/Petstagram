@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Главная | Petstagram{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <img src="{% static 'images/pets_hero.png' %}" alt="Petstagram" class="banner-image">
+</div>
+
+<div class="hero-section">
+    <div class="hero-content">
+        <h1>Petstagram — мир ваших питомцев!</h1>
+        <p class="lead">Делитесь моментами, находите друзей и вдохновляйтесь</p>
+    </div>
+</div>
+
+<div class="features-section">
+    <h2>Почему Petstagram?</h2>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🐾</div>
+            <h3>Профиль питомца</h3>
+            <p>Создайте уникальную страницу своего питомца с именем и фотографией</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">📸</div>
+            <h3>Фото и истории</h3>
+            <p>Делитесь лучшими моментами жизни вашего любимца</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">❤️</div>
+            <h3>Лайки и комментарии</h3>
+            <p>Общайтесь с другими владельцами питомцев</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon">🤗</div>
+            <h3>Лента и подписки</h3>
+            <p>Узнавайте новости своих друзей первыми</p>
+        </div>
+    </div>
+</div>
+
+<div class="demo-section">
+    <h2>Последние публикации</h2>
+    <div class="demo-posts">
+        {% for post in demo_posts %}
+        <div class="demo-post">
+            <img src="{{ post.image.url }}" alt="{{ post.caption|truncatechars:20 }}">
+            <p>{{ post.caption|truncatechars:50 }}</p>
+        </div>
+        {% empty %}
+        <p>Пока нет публикаций. Будьте первым!</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

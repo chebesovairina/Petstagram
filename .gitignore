@@ -1,0 +1,7 @@
+# Из https://github.com/github/gitignore/blob/main/Python.gitignore
+__pycache__/
+*.py[cod]
+*.sqlite3
+env/
+.venv/
+.env
